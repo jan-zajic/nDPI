@@ -225,6 +225,111 @@ FILE *trace = NULL;
  */
 static void setupDetection(u_int16_t thread_id, pcap_t * pcap_handle);
 
+static void
+reduceBDbits (uint32_t *bd, unsigned int len) {
+  int mask = 0;
+  int shift = 0;
+  unsigned int i = 0;
+
+  for (i = 0; i < len; i++) {
+    mask = mask | bd[i];
+  }
+  mask = mask >> 8;
+  for (i = 0; i < 24 && mask; i++) {
+    mask = mask >> 1;
+    if (mask == 0) {
+      shift = i+1;
+      break;
+    }
+  }
+  for (i = 0; i < len; i++) {
+    bd[i] = bd[i] >> shift;
+  }
+}
+
+/**
+ * @brief Get flow byte distribution mean and variance
+ */
+static void
+flowGetBDMeanandVariance(struct ndpi_flow_info* flow) {
+  FILE *out = results_file ? results_file : stdout;
+
+  const uint32_t *array = NULL;
+  uint32_t tmp[256], i;
+  unsigned int num_bytes;
+  double mean = 0.0, variance = 0.0;
+
+  fflush(out);
+
+  /*
+   * Sum up the byte_count array for outbound and inbound flows,
+   * if this flow is bidirectional
+   */
+  if (!flow->bidirectional) {
+    array = flow->src2dst_byte_count;
+    num_bytes = flow->src2dst_l4_bytes;
+    for (i=0; i<256; i++) {
+      tmp[i] = flow->src2dst_byte_count[i];
+    }
+
+    if (flow->src2dst_num_bytes != 0) {
+      mean = flow->src2dst_bd_mean;
+      variance = flow->src2dst_bd_variance/(flow->src2dst_num_bytes - 1);
+      variance = sqrt(variance);
+
+      if (flow->src2dst_num_bytes == 1) {
+        variance = 0.0;
+      }
+    }
+  } else {
+    for (i=0; i<256; i++) {
+      tmp[i] = flow->src2dst_byte_count[i] + flow->dst2src_byte_count[i];
+    }
+    array = tmp;
+    num_bytes = flow->src2dst_l4_bytes + flow->dst2src_l4_bytes;
+
+    if (flow->src2dst_num_bytes + flow->dst2src_num_bytes != 0) {
+      mean = ((double)flow->src2dst_num_bytes)/((double)(flow->src2dst_num_bytes+flow->dst2src_num_bytes))*flow->src2dst_bd_mean +
+             ((double)flow->dst2src_num_bytes)/((double)(flow->dst2src_num_bytes+flow->src2dst_num_bytes))*flow->dst2src_bd_mean;
+
+      variance = ((double)flow->src2dst_num_bytes)/((double)(flow->src2dst_num_bytes+flow->dst2src_num_bytes))*flow->src2dst_bd_variance +
+                 ((double)flow->dst2src_num_bytes)/((double)(flow->dst2src_num_bytes+flow->src2dst_num_bytes))*flow->dst2src_bd_variance;
+
+      variance = variance/((double)(flow->src2dst_num_bytes + flow->dst2src_num_bytes - 1));
+      variance = sqrt(variance);
+      if (flow->src2dst_num_bytes + flow->dst2src_num_bytes == 1) {
+        variance = 0.0;
+      }
+    }
+  }
+
+  if (verbose > 0) {
+    reduceBDbits(tmp, 256);
+    array = tmp;
+
+    fprintf(out, ",\"byte_dist\":[");
+    for (i = 0; i < 255; i++) {
+      fprintf(out, "%u,", (unsigned char)array[i]);
+    }
+    fprintf(out, "%u]", (unsigned char)array[i]);
+
+    /* Output the mean */
+    if (num_bytes != 0) {
+      fprintf(out, ",\"byte_dist_mean\":%f", mean);
+      fprintf(out, ",\"byte_dist_std\":%f", variance);
+    }
+  }
+
+  if (verbose > 0) {
+    if (num_bytes != 0) {
+      double entropy = ndpi_flow_get_byte_count_entropy(array, num_bytes);
+
+      fprintf(out, ",\"entropy\":%f", entropy);
+      fprintf(out, ",\"total_entropy\":%f", entropy * num_bytes);
+    }
+  }
+}
+
 /**
  * @brief Print help instructions
  */
@@ -798,6 +903,11 @@ static void printFlow(u_int16_t id, struct ndpi_flow_info *flow, u_int16_t threa
       );
 
     if(flow->vlan_id > 0) fprintf(out, "[VLAN: %u]", flow->vlan_id);
+
+    /* Print entropy values for monitored flows. */
+    flowGetBDMeanandVariance(flow);
+    fflush(out);
+    fprintf(out, "[score: %.4f]", flow->score);
 
     if(flow->detected_protocol.master_protocol) {
       char buf[64];
