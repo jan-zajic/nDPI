@@ -24,6 +24,11 @@
 #ifndef __NDPI_MAIN_H__
 #define __NDPI_MAIN_H__
 
+#ifdef NDPI_LIB_COMPILATION
+/* Needed to have access to HAVE_* defines */
+#include "ndpi_config.h"
+#endif
+
 #include "ndpi_includes.h"
 #include "ndpi_define.h"
 #include "ndpi_protocol_ids.h"
