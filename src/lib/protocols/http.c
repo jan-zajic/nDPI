@@ -428,9 +428,7 @@ static u_int16_t http_request_url_offset(struct ndpi_detection_module_struct *nd
   struct ndpi_packet_struct *packet = &flow->packet;
   int i;
 
-  NDPI_LOG_DBG2(ndpi_struct, "====>>>> HTTP: %c%c%c%c [len: %u]\n",
-		non_ctrl(packet->payload[0]), non_ctrl(packet->payload[1]),
-		non_ctrl(packet->payload[2]), non_ctrl(packet->payload[3]),
+  NDPI_LOG_DBG2(ndpi_struct, "====>>>> HTTP [len: %u]\n",
 		packet->payload_packet_len);
 
   /* Check first char */
