@@ -1,4 +1,3 @@
-
 /*
  * ndpi_protocol_ids.h
  *
@@ -75,12 +74,12 @@ typedef enum {
   NDPI_PROTOCOL_SKYPE_CALL            = 38, /* Skype call and videocalls */
   NDPI_PROTOCOL_SIGNAL                = 39,
   NDPI_PROTOCOL_MEMCACHED             = 40, /* Memcached - Darryl Sokoloski <darryl@egloo.ca> */
-  NDPI_PROTOCOL_SMBV23                = 41, /* SMB version 2/3 */  
+  NDPI_PROTOCOL_SMBV23                = 41, /* SMB version 2/3 */
   NDPI_PROTOCOL_MINING                = 42, /* Bitcoin, Ethereum, ZCash, Monero */
   NDPI_PROTOCOL_NEST_LOG_SINK         = 43, /* Nest Log Sink (Nest Protect) - Darryl Sokoloski <darryl@egloo.ca> */
   NDPI_PROTOCOL_MODBUS                = 44, /* Modbus */
   NDPI_PROTOCOL_WHATSAPP_CALL         = 45, /* WhatsApp video ad audio calls go here */
-  NDPI_PROTOCOL_DATASAVER             = 46, /* Protocols used to save data on Internet communications */  
+  NDPI_PROTOCOL_DATASAVER             = 46, /* Protocols used to save data on Internet communications */
   NDPI_PROTOCOL_XBOX                  = 47,
   NDPI_PROTOCOL_QQ                    = 48,
   NDPI_PROTOCOL_TIKTOK                = 49,
@@ -230,16 +229,16 @@ typedef enum {
   NDPI_PROTOCOL_KAKAOTALK             = 193, /* KakaoTalk Chat (no voice call) */
   NDPI_PROTOCOL_KAKAOTALK_VOICE       = 194, /* KakaoTalk Voice */
   NDPI_PROTOCOL_TWITCH                = 195, /* Edoardo Dominici <edoaramis@gmail.com> */
-  NDPI_PROTOCOL_DNS_OVER_HTTPS        = 196,
+  NDPI_PROTOCOL_DOH_DOT               = 196, /* DoH (DNS over HTTPS), DoT (DNS over TLS) */
   NDPI_PROTOCOL_WECHAT                = 197,
   NDPI_PROTOCOL_MPEGTS                = 198,
   NDPI_PROTOCOL_SNAPCHAT              = 199,
   NDPI_PROTOCOL_SINA                  = 200,
-  NDPI_PROTOCOL_HANGOUT_DUO           = 201, /* Google Hangout ad Duo (merged as they are very similar) */ 
+  NDPI_PROTOCOL_HANGOUT_DUO           = 201, /* Google Hangout ad Duo (merged as they are very similar) */
   NDPI_PROTOCOL_IFLIX                 = 202, /* www.vizuamatix.com R&D team & M.Mallawaarachchie <manoj_ws@yahoo.com> */
   NDPI_PROTOCOL_GITHUB                = 203,
   NDPI_PROTOCOL_BJNP                  = 204,
-  NDPI_PROTOCOL_LINE                  = 205, /* https://en.wikipedia.org/wiki/Line_(software) */
+  NDPI_PROTOCOL_FREE_205              = 205,
   NDPI_PROTOCOL_WIREGUARD             = 206,
   NDPI_PROTOCOL_SMPP                  = 207, /* Damir Franusic <df@release14.org> */
   NDPI_PROTOCOL_DNSCRYPT              = 208,
@@ -279,14 +278,22 @@ typedef enum {
   NDPI_PROTOCOL_WHATSAPP_FILES        = 242, /* Videos, pictures, voice messages... */
   NDPI_PROTOCOL_TARGUS_GETDATA        = 243,
   NDPI_PROTOCOL_DNP3                  = 244,
-  NDPI_PROTOCOL_104                   = 245,    
-/*
+  NDPI_PROTOCOL_IEC60870              = 245, /* https://en.wikipedia.org/wiki/IEC_60870-5 */
+  NDPI_PROTOCOL_BLOOMBERG             = 246,
+  NDPI_PROTOCOL_CAPWAP                = 247,
+  NDPI_PROTOCOL_ZABBIX                = 248,
+
+#ifdef CUSTOM_NDPI_PROTOCOLS
+#include "../../../nDPI-custom/custom_ndpi_protocol_ids.h"
+#endif  
+
+  /*
     IMPORTANT
     before allocating a new identifier please fill up
     one of those named NDPI_PROTOCOL_FREE_XXX and not used
     (placeholders to avoid protocol renumbering)
   */
-  
+
   /* IMPORTANT:NDPI_LAST_IMPLEMENTED_PROTOCOL MUST BE THE LAST ELEMENT */
   NDPI_LAST_IMPLEMENTED_PROTOCOL
 } ndpi_protocol_id_t;

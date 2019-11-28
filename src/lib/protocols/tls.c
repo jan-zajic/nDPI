@@ -32,8 +32,7 @@
 extern char *strptime(const char *s, const char *format, struct tm *tm);
 
 /* #define DEBUG_TLS 1 */
-
-#define DEBUG_FINGERPRINT 1
+/* #define DEBUG_FINGERPRINT 1 */
 
 /*
   NOTE
@@ -59,13 +58,16 @@ extern u_int8_t is_skype_flow(struct ndpi_detection_module_struct *ndpi_struct,
 /* stun.c */
 extern u_int32_t get_stun_lru_key(struct ndpi_flow_struct *flow, u_int8_t rev);
 
+extern int sslTryAndRetrieveServerCertificate(struct ndpi_detection_module_struct *ndpi_struct,
+					      struct ndpi_flow_struct *flow);
+
 /* **************************************** */
 
 static u_int32_t ndpi_tls_refine_master_protocol(struct ndpi_detection_module_struct *ndpi_struct,
 						 struct ndpi_flow_struct *flow, u_int32_t protocol) {
   struct ndpi_packet_struct *packet = &flow->packet;
 
-  protocol = NDPI_PROTOCOL_TLS;
+  // protocol = NDPI_PROTOCOL_TLS;
 
   if(packet->tcp != NULL) {
     switch(protocol) {
@@ -94,6 +96,16 @@ static u_int32_t ndpi_tls_refine_master_protocol(struct ndpi_detection_module_st
 
 /* **************************************** */
 
+static void sslInitExtraPacketProcessing(struct ndpi_flow_struct *flow) {
+  flow->check_extra_packets = 1;
+
+  /* At most 7 packets should almost always be enough to find the server certificate if it's there */
+  flow->max_extra_packets_to_check = 7;
+  flow->extra_packets_func = sslTryAndRetrieveServerCertificate;
+}
+
+/* **************************************** */
+
 static void ndpi_int_tls_add_connection(struct ndpi_detection_module_struct *ndpi_struct,
 					struct ndpi_flow_struct *flow, u_int32_t protocol) {
   if(protocol != NDPI_PROTOCOL_TLS)
@@ -102,6 +114,7 @@ static void ndpi_int_tls_add_connection(struct ndpi_detection_module_struct *ndp
     protocol = ndpi_tls_refine_master_protocol(ndpi_struct, flow, protocol);
 
   ndpi_set_detected_protocol(ndpi_struct, flow, protocol, NDPI_PROTOCOL_TLS);
+  sslInitExtraPacketProcessing(flow);
 }
 
 /* **************************************** */
@@ -411,9 +424,25 @@ int getTLScertificate(struct ndpi_detection_module_struct *ndpi_struct,
 
 	      if(num_dots >= 1) {
 		if(!ndpi_struct->disable_metadata_export) {
+		  ndpi_protocol_match_result ret_match;
+		  u_int16_t subproto;
+		  
 		  stripCertificateTrailer(buffer, buffer_len);
 		  snprintf(flow->protos.stun_ssl.ssl.server_certificate,
 			   sizeof(flow->protos.stun_ssl.ssl.server_certificate), "%s", buffer);
+		  
+#ifdef DEBUG_TLS
+		  printf("[server_certificate: %s]\n", flow->protos.stun_ssl.ssl.server_certificate);
+#endif
+		  
+		  subproto = ndpi_match_host_subprotocol(ndpi_struct, flow,
+							 flow->protos.stun_ssl.ssl.server_certificate,
+							 strlen(flow->protos.stun_ssl.ssl.server_certificate),
+							 &ret_match,
+							 NDPI_PROTOCOL_TLS);
+
+		  if(subproto != NDPI_PROTOCOL_UNKNOWN)
+		    ndpi_set_detected_protocol(ndpi_struct, flow, subproto, NDPI_PROTOCOL_TLS);
 		}
 
 		return(1 /* Server Certificate */);
@@ -735,7 +764,12 @@ int getSSCertificateFingerprint(struct ndpi_detection_module_struct *ndpi_struct
     return(1); /* More packets please */
   else if(flow->l4.tcp.tls_srv_cert_fingerprint_processed)
     return(0); /* We're good */
-  
+
+  if(packet->payload_packet_len <= flow->l4.tcp.tls_record_offset) {
+    /* Avoid invalid memory accesses */
+    return(1);
+  }
+
   if(flow->l4.tcp.tls_fingerprint_len > 0) {
     unsigned int avail = packet->payload_packet_len - flow->l4.tcp.tls_record_offset;
 
@@ -788,11 +822,6 @@ int getSSCertificateFingerprint(struct ndpi_detection_module_struct *ndpi_struct
     }
   }
 
-  if(packet->payload_packet_len <= flow->l4.tcp.tls_record_offset) {
-    /* Avoid invalid memory accesses */
-    return(1);
-  }
-
   if(packet->payload[flow->l4.tcp.tls_record_offset] == 0x15 /* Alert */) {
     u_int len = ntohs(*(u_int16_t*)&packet->payload[flow->l4.tcp.tls_record_offset+3]) + 5 /* SSL header len */;
 
@@ -820,9 +849,12 @@ int getSSCertificateFingerprint(struct ndpi_detection_module_struct *ndpi_struct
 
     if(flow->l4.tcp.tls_srv_cert_fingerprint_ctx == NULL)
       flow->l4.tcp.tls_srv_cert_fingerprint_ctx = (void*)ndpi_malloc(sizeof(SHA1_CTX));
-    else
+    else {
+#ifdef DEBUG_TLS
       printf("[TLS] Internal error: double allocation\n:");
-
+#endif
+    }
+    
     if(flow->l4.tcp.tls_srv_cert_fingerprint_ctx) {
       SHA1Init(flow->l4.tcp.tls_srv_cert_fingerprint_ctx);
       flow->l4.tcp.tls_srv_cert_fingerprint_found = 1;
@@ -866,7 +898,8 @@ int getSSCertificateFingerprint(struct ndpi_detection_module_struct *ndpi_struct
       }
     }
   }
-  
+
+  flow->extra_packets_func = NULL; /* We're good now */
   return(1);
 }
 
@@ -1067,18 +1100,6 @@ int sslTryAndRetrieveServerCertificate(struct ndpi_detection_module_struct *ndpi
 
 /* **************************************** */
 
-void sslInitExtraPacketProcessing(int caseNum, struct ndpi_flow_struct *flow) {
-  flow->check_extra_packets = 1;
-  /* 0 is the case for waiting for the server certificate */
-  if(caseNum == 0) {
-    /* At most 7 packets should almost always be enough to find the server certificate if it's there */
-    flow->max_extra_packets_to_check = 7;
-    flow->extra_packets_func = sslTryAndRetrieveServerCertificate;
-  }
-}
-
-/* **************************************** */
-
 int tlsDetectProtocolFromCertificate(struct ndpi_detection_module_struct *ndpi_struct,
 				     struct ndpi_flow_struct *flow,
 				     u_int8_t skip_cert_processing) {
@@ -1106,18 +1127,23 @@ int tlsDetectProtocolFromCertificate(struct ndpi_detection_module_struct *ndpi_s
 	NDPI_LOG_DBG2(ndpi_struct, "***** [SSL] %s\n", certificate);
 #endif
 	ndpi_protocol_match_result ret_match;
-	u_int16_t subproto = ndpi_match_host_subprotocol(ndpi_struct, flow, certificate,
-							 strlen(certificate),
-							 &ret_match,
-							 NDPI_PROTOCOL_TLS);
+	u_int16_t subproto;
 
+	if(certificate[0] == '\0')
+	  subproto = NDPI_PROTOCOL_UNKNOWN;
+	else
+	  subproto = ndpi_match_host_subprotocol(ndpi_struct, flow, certificate,
+						 strlen(certificate),
+						 &ret_match,
+						 NDPI_PROTOCOL_TLS);
+	
 	if(subproto != NDPI_PROTOCOL_UNKNOWN) {
 	  /* If we've detected the subprotocol from client certificate but haven't had a chance
 	   * to see the server certificate yet, set up extra packet processing to wait
 	   * a few more packets. */
 	  if(((flow->l4.tcp.tls_seen_client_cert == 1) && (flow->protos.stun_ssl.ssl.client_certificate[0] != '\0'))
 	     && ((flow->l4.tcp.tls_seen_server_cert != 1) && (flow->protos.stun_ssl.ssl.server_certificate[0] == '\0'))) {
-	    sslInitExtraPacketProcessing(0, flow);
+	    sslInitExtraPacketProcessing(flow);
 	  }
 
 	  ndpi_set_detected_protocol(ndpi_struct, flow, subproto,
@@ -1129,11 +1155,26 @@ int tlsDetectProtocolFromCertificate(struct ndpi_detection_module_struct *ndpi_s
 	  return(rc);
       }
 
-      if(((packet->tls_certificate_num_checks >= 3)
-	  && flow->l4.tcp.seen_syn
-	  && flow->l4.tcp.seen_syn_ack
-	  && flow->l4.tcp.seen_ack /* We have seen the 3-way handshake */
-	  && flow->l4.tcp.tls_srv_cert_fingerprint_processed
+#ifdef DEBUG_TLS
+      printf("[TLS] %s() [tls_certificate_num_checks: %u][tls_srv_cert_fingerprint_processed: %u][tls_certificate_detected: %u][%u/%u]",
+	     __FUNCTION__, packet->tls_certificate_num_checks, flow->l4.tcp.tls_srv_cert_fingerprint_processed,
+	     packet->tls_certificate_detected,
+	     flow->l4.tcp.tls_seen_client_cert,
+	     flow->l4.tcp.tls_seen_server_cert 
+	     );
+#endif
+
+
+      if(((packet->tls_certificate_num_checks >= 1)
+#if 0
+	  && (flow->l4.tcp.seen_syn /* User || to be tolerant */
+	      || flow->l4.tcp.seen_syn_ack
+	      || flow->l4.tcp.seen_ack /* We have seen the 3-way handshake */)
+#endif
+	  && (flow->l4.tcp.tls_srv_cert_fingerprint_processed
+	      || flow->l4.tcp.tls_seen_client_cert
+	      || flow->l4.tcp.tls_seen_server_cert 
+	      || packet->tls_certificate_detected)
 	  )
 	 /*
 	 || ((flow->l4.tcp.tls_seen_certificate == 1)
@@ -1227,7 +1268,12 @@ static void tls_mark_and_payload_search(struct ndpi_detection_module_struct
   if(packet->detected_protocol_stack[0] == NDPI_PROTOCOL_UNKNOWN) {
     NDPI_LOG_DBG(ndpi_struct, "found ssl connection\n");
     tlsDetectProtocolFromCertificate(ndpi_struct, flow, skip_cert_processing);
-    
+
+#ifdef DEBUG_TLS
+    printf("[TLS] %s() [tls_seen_client_cert: %u][tls_seen_server_cert: %u]\n", __FUNCTION__,
+	   flow->l4.tcp.tls_seen_client_cert, flow->l4.tcp.tls_seen_server_cert);
+#endif
+
     if(!packet->tls_certificate_detected
        && (!(flow->l4.tcp.tls_seen_client_cert && flow->l4.tcp.tls_seen_server_cert))) {
       /* SSL without certificate (Skype, Ultrasurf?) */
@@ -1353,6 +1399,10 @@ void ndpi_search_tls_tcp_udp(struct ndpi_detection_module_struct *ndpi_struct,
   struct ndpi_packet_struct *packet = &flow->packet;
   u_int8_t ret, skip_cert_processing = 0;
 
+#ifdef DEBUG_TLS
+  printf("%s()\n", __FUNCTION__);  
+#endif
+  
   if(packet->udp != NULL) {
     /* DTLS dissector */
     int rc = sslTryAndRetrieveServerCertificate(ndpi_struct, flow);

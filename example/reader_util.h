@@ -160,11 +160,13 @@ typedef struct ndpi_flow_info {
   u_int16_t dst_port;
   u_int8_t detection_completed, protocol, bidirectional, check_extra_packets;
   u_int16_t vlan_id;
+  ndpi_packet_tunnel tunnel_type;
   struct ndpi_flow_struct *ndpi_flow;
   char src_name[48], dst_name[48];
   u_int8_t ip_version;
   u_int64_t first_seen, last_seen;
   u_int64_t src2dst_bytes, dst2src_bytes;
+  u_int64_t src2dst_goodput_bytes, dst2src_goodput_bytes;
   u_int32_t src2dst_packets, dst2src_packets;
   u_int32_t has_human_readeable_strings;
   char human_readeable_string_buffer[32];
@@ -194,15 +196,18 @@ typedef struct ndpi_flow_info {
   } ssh_tls;
 
   struct {
-    char url[256];
+    char url[256], content_type[64], user_agent[128];
     u_int response_status_code;
   } http;
+  
+  struct {
+    char username[32], password[32];
+  } telnet;
   
   void *src_id, *dst_id;
 
   struct ndpi_entropy entropy;
-  struct ndpi_entropy last_entropy;
-  
+  struct ndpi_entropy last_entropy;  
 } ndpi_flow_info_t;
 
 
@@ -299,6 +304,7 @@ int ndpi_workflow_node_cmp(const void *a, const void *b);
 void process_ndpi_collected_info(struct ndpi_workflow * workflow, struct ndpi_flow_info *flow);
 u_int32_t ethernet_crc32(const void* data, size_t n_bytes);
 void ndpi_flow_info_freer(void *node);
+void ndpi_free_flow_data_analysis(struct ndpi_flow_info *flow);
 const char* print_cipher_id(u_int32_t cipher);
 float ndpi_flow_get_byte_count_entropy(const uint32_t byte_count[256], unsigned int num_bytes);
 
