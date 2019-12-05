@@ -21,6 +21,12 @@ A million repetitions of "a"
 
 #define SHA1HANDSOFF
 
+#if defined(_WIN32)
+#include <stdint.h>
+typedef uint32_t u_int32_t;
+#define BYTE_ORDER	LITTLE_ENDIAN
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>	/* for u_int*_t */

@@ -21,6 +21,13 @@
 #ifndef _AC_TYPES_H_
 #define _AC_TYPES_H_
 
+#if defined(_WIN32)
+#include <stdint.h>
+typedef uint8_t u_int8_t;
+typedef uint16_t u_int16_t;
+typedef uint32_t u_int32_t;
+#endif
+
 /* AC_ALPHABET_t:
  * defines the alphabet type.
  * Actually defining AC_ALPHABET_t as a char will work, but sometimes we deal
