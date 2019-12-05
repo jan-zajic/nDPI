@@ -1,0 +1,150 @@
+/*
+ * ndpi_content_match.c
+ *
+ * Copyright (C) 2011-19 - ntop.org
+ *
+ * nDPI is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * nDPI is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with nDPI.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+/* ****************************************************** */
+
+static ndpi_network host_protocol_list[] = {
+  /* End */
+  { 0x0, 0, 0 }
+};
+
+
+/* ****************************************************** */
+
+/*
+  Host-based match
+
+  HTTP:  Server: field
+  HTTPS: Server certificate name
+
+  Risk classification criteria
+  ----------------------------
+
+  NDPI_PROTOCOL_SAFE
+  - Web sites (and CDNs) which are not commonly used to host malicious activities.
+  - OS update hosts.
+  - App stores.
+  - Commonly used services with passwords in encrypted channels (SMTPS, POPS, etc)
+
+  NDPI_PROTOCOL_ACCEPTABLE
+  - Cloud services may be used to host malware (e.g., https://www.fireeye.com/blog/threat-research/2015/11/china-based-threat.html),
+  but it is mostly used for normal purposes.
+  - Webmail sites, which can be used to phising.
+  - Encrypted administrative protocols, such as SSH.
+  - Text, voice or video communication (e.g., Skype, Slack, Whatsapp).
+  - Ads services are commonly used to spread malware
+  (https://www.tripwire.com/state-of-security/security-data-protection/crypto-ransomware-spreads-via-poisoned-ads-on-major-websites/)
+
+  NDPI_PROTOCOL_FUN
+  - Social media sites and services.
+  - Communication used for fun purposes, like Snapchat, Tinder, etc.
+  - Audio and videostreamming services (e.g., Netflix).
+  - Game services.
+
+  NDPI_PROTOCOL_UNSAFE
+  - Unencrypted administrative protocols, such as Telnet.
+  - Cloud hosted servers when accessed by default domains, such as *.amazonaws.com.
+  - "AWS Supports 41% of Malware Hosting Sites, More than Any Other Web Host or ISP"
+  http://www.thewhir.com/web-hosting-news/aws-supports-41-malware-hosting-sites-web-host-isp
+  - https://www.scmagazine.com/600-plus-cloud-repositories-spotted-hosting-malware-and-malicious-files/article/572205/
+  - https://howtoremove.guide/remove-s3-amazonaws-virus/
+  - Torrents.
+  - Commonly used services with passwords in unencrypted channels (SMTP, POP, etc)
+
+  NDPI_PROTOCOL_POTENTIALLY_DANGEROUS
+  - Tor and other anonymization access.
+  - Sites commonly used to host malware and not as commonly used by "normal" users. (e.g., pastebin.com)
+  https://isc.sans.edu/forums/diary/Many+Malware+Samples+Found+on+Pastebin/22036/
+
+  NDPI_PROTOCOL_UNRATED
+  - Avoid this class.
+
+*/
+
+/* ****************************************************** */
+
+/*
+
+Each part of a domain name can be no longer than 63 characters. There are no single-digit top-level domains and none contain digits. It doesn't look like ICANN will approve such domains either.
+
+https://www.regular-expressions.info/email.html
+
+(?i) is to make searches case insensitive
+
+(?:) is a non-capturing group used to allow patterns such as .co.uk or .com.cn
+     The non-capturing group is used in a nested fashion to capture the
+     .co, and then, optionally, another m.
+
+*/
+
+#define TLD "(?i)(?:\\.co(?:m)?)?\\.[a-z]{2,63}$"
+
+/* ****************************************************** */
+
+static ndpi_protocol_match host_match[] = {
+  { NULL, NULL, NULL, 0 }
+};
+
+/* ******************************************************************** */
+
+/* 
+   IMPORTANT
+	
+   Do NOT pur here strings that overlap with string in host_match[]
+   specified above
+*/
+static ndpi_category_match category_match[] = {
+   { NULL, NULL, 0 }
+};
+
+/* ******************************************************************** */
+
+/*
+  Tor
+  The tor protocol uses SSL to contact peers so it could be exchanged with
+  standard SSL. However the host names such as
+
+  - www.fgd2iwya7vinfutj5wq5we.com
+  - www.qbtxzhetq4s2f.com
+  - www.fgd2iwya7vinfutj5wq5we.net
+
+  See also DGA (Domain Generation Algorithm)
+
+  In essence www.<name>.com|net
+
+  To do things properly we should check if host name in the certificate
+  exists or if the IP address of the SSL peer resolves to a name. Unfortunately
+  for performance reasons we can't afford to do a DNS lookup in nDPI (however apps
+  can do it if possible) and thus we have created a heuristic algorithm that tries
+  to check the host name (in the SSL certificate) to see if it looks like a
+  random name or a real name. We cannot use a dictionary (how can the kernel read a file?)
+  and this we use bigrams distribution to decide if the string looks like a
+  word or just random chars.
+
+  http://www3.nd.edu/~busiforc/handouts/cryptography/Letter%20Frequencies.html
+*/
+
+static const char *ndpi_en_bigrams[] = {
+  NULL };
+
+/* ******************************************************************** */
+
+static const char *ndpi_en_impossible_bigrams[] = {
+  NULL };
