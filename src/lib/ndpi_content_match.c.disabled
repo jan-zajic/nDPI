@@ -99,7 +99,13 @@ https://www.regular-expressions.info/email.html
 /* ****************************************************** */
 
 static ndpi_protocol_match host_match[] = {
-  { NULL, NULL, NULL, 0 }
+  { NULL, NULL, 0, 0, 0 }
+};
+
+/* ******************************************************************** */
+
+static ndpi_tls_cert_name_match tls_certificate_match [] = {
+  { NULL, 0 }
 };
 
 /* ******************************************************************** */
