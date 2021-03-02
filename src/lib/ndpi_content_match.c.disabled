@@ -104,14 +104,14 @@ static ndpi_protocol_match host_match[] = {
 
 /* ******************************************************************** */
 
-/* 
+/*
    IMPORTANT
-	
+
    Do NOT pur here strings that overlap with string in host_match[]
    specified above
 */
 static ndpi_category_match category_match[] = {
-   { NULL, NULL, 0 }
+   { NULL, 0 }
 };
 
 /* ******************************************************************** */
