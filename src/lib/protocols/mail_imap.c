@@ -1,7 +1,7 @@
 /*
  * mail_imap.c
  *
- * Copyright (C) 2016-19 - ntop.org
+ * Copyright (C) 2016-21 - ntop.org
  *
  * This file is part of nDPI, an open source deep packet inspection
  * library based on the OpenDPI and PACE technology by ipoque GmbH
@@ -161,7 +161,7 @@ void ndpi_search_mail_imap_tcp(struct ndpi_detection_module_struct *ndpi_struct,
 	    && (packet->payload[command_start + 4] == 'N' || packet->payload[command_start + 4] == 'n')) {
 	  /* xxxx LOGIN "username" "password" */
 	  char str[256], *item;
-	  u_int len = packet->payload_packet_len > sizeof(str) ? sizeof(str) : packet->payload_packet_len;
+	  u_int len = packet->payload_packet_len >= sizeof(str) ? sizeof(str)-1 : packet->payload_packet_len;
 	  
 	  strncpy(str, (const char*)packet->payload, len);
 	  str[len] = '\0';

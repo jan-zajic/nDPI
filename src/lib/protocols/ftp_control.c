@@ -1,7 +1,7 @@
 /*
  * ftp_control.c
  *
- * Copyright (C) 2016-19 - ntop.org
+ * Copyright (C) 2016-21 - ntop.org
  *
  * This file is part of nDPI, an open source deep packet inspection
  * library based on the OpenDPI and PACE technology by ipoque GmbH
@@ -43,7 +43,7 @@ static int ndpi_ftp_control_check_request(struct ndpi_flow_struct *flow,
 					  const u_int8_t *payload,
 					  size_t payload_len) {
 #ifdef FTP_DEBUG
-  printf("%s() [%s]\n", __FUNCTION__, payload);
+  printf("%s() [%.*s]\n", __FUNCTION__, (int)payload_len, payload);
 #endif
 
   if(ndpi_match_strprefix(payload, payload_len, "USER")) {
@@ -550,7 +550,7 @@ static int ndpi_ftp_control_check_response(struct ndpi_flow_struct *flow,
 					   const u_int8_t *payload,
 					   size_t payload_len) {
 #ifdef FTP_DEBUG
-  printf("%s() [%s]\n", __FUNCTION__, payload);
+  printf("%s() [%.*s]\n", __FUNCTION__, (int)payload_len, payload);
 #endif
 
   if(payload_len == 0) return(1);
@@ -590,8 +590,8 @@ static void ndpi_check_ftp_control(struct ndpi_detection_module_struct *ndpi_str
       return;
     }
 
-    /* Break after 20 packets. */
-    if(flow->packet_counter > 20) {
+    /* Break after 8 packets. */
+    if(flow->packet_counter > 8) {
       NDPI_EXCLUDE_PROTO(ndpi_struct, flow);
       return;
     }
@@ -666,7 +666,7 @@ void init_ftp_control_dissector(struct ndpi_detection_module_struct *ndpi_struct
   ndpi_set_bitmask_protocol_detection("FTP_CONTROL", ndpi_struct, detection_bitmask, *id,
 				      NDPI_PROTOCOL_FTP_CONTROL,
 				      ndpi_search_ftp_control,
-				      NDPI_SELECTION_BITMASK_PROTOCOL_V4_V6_TCP_WITHOUT_RETRANSMISSION,
+				      NDPI_SELECTION_BITMASK_PROTOCOL_V4_V6_TCP_WITH_PAYLOAD_WITHOUT_RETRANSMISSION,
 				      SAVE_DETECTION_BITMASK_AS_UNKNOWN,
 				      ADD_TO_DETECTION_BITMASK);
 

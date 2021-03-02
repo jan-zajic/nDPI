@@ -1,8 +1,8 @@
 /*
  * irc.c
  *
- * Copyright (C) 2009-2011 by ipoque GmbH
- * Copyright (C) 2011-19 - ntop.org
+ * Copyright (C) 2009-11 - ipoque GmbH
+ * Copyright (C) 2011-21 - ntop.org
  *
  * This file is part of nDPI, an open source deep packet inspection
  * library based on the OpenDPI and PACE technology by ipoque GmbH
@@ -373,7 +373,6 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
   struct ndpi_id_struct *dst = flow->dst;
   int less;
   u_int16_t c = 0;
-  u_int16_t c1 = 0;
   u_int16_t port = 0;
   u_int16_t sport = 0;
   u_int16_t dport = 0;
@@ -386,38 +385,33 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
   u_int8_t space = 0;
 
   NDPI_LOG_DBG(ndpi_struct, "search irc\n");
-  if (flow->detected_protocol_stack[0] != NDPI_PROTOCOL_IRC && flow->packet_counter > 70) {
+  if (flow->detected_protocol_stack[0] != NDPI_PROTOCOL_IRC && (flow->packet_counter > 10)) {
     NDPI_LOG_DBG(ndpi_struct, "exclude irc, packet_counter > 70\n");
     NDPI_ADD_PROTOCOL_TO_BITMASK(flow->excluded_protocol_bitmask, NDPI_PROTOCOL_IRC);
     return;
   }
-  if (flow->detected_protocol_stack[0] != NDPI_PROTOCOL_IRC && flow->packet_counter > 30 &&
-      flow->l4.tcp.irc_stage2 == 0) {
-    NDPI_LOG_DBG(ndpi_struct, "exclude irc, packet_counter > 30\n");
-    NDPI_ADD_PROTOCOL_TO_BITMASK(flow->excluded_protocol_bitmask, NDPI_PROTOCOL_IRC);
-    return;
-  }
+
   if (packet->detected_protocol_stack[0] == NDPI_PROTOCOL_IRC) {
     if (src != NULL && ((u_int32_t)
-			(packet->tick_timestamp - src->irc_ts) < ndpi_struct->irc_timeout)) {
+			(packet->current_time_ms - src->irc_ts) < ndpi_struct->irc_timeout)) {
       NDPI_LOG_DBG2(ndpi_struct, "irc : save src connection packet detected\n");
-      src->irc_ts = packet->tick_timestamp;
+      src->irc_ts = packet->current_time_ms;
     } else if (dst != NULL && ((u_int32_t)
-			       (packet->tick_timestamp - dst->irc_ts) < ndpi_struct->irc_timeout)) {
+			       (packet->current_time_ms - dst->irc_ts) < ndpi_struct->irc_timeout)) {
       NDPI_LOG_DBG2(ndpi_struct, "irc : save dst connection packet detected\n");
-      dst->irc_ts = packet->tick_timestamp;
+      dst->irc_ts = packet->current_time_ms;
     }
   }
 
   if (((dst != NULL && NDPI_COMPARE_PROTOCOL_TO_BITMASK(dst->detected_protocol_bitmask, NDPI_PROTOCOL_IRC)
 	&& ((u_int32_t)
-	    (packet->tick_timestamp - dst->irc_ts)) <
+	    (packet->current_time_ms - dst->irc_ts)) <
 	ndpi_struct->irc_timeout)) || (src != NULL
 				       &&
 				       NDPI_COMPARE_PROTOCOL_TO_BITMASK
 				       (src->detected_protocol_bitmask, NDPI_PROTOCOL_IRC)
 				       && ((u_int32_t)
-					   (packet->tick_timestamp - src->irc_ts)) < ndpi_struct->irc_timeout)) {
+					   (packet->current_time_ms - src->irc_ts)) < ndpi_struct->irc_timeout)) {
     if (packet->tcp != NULL) {
       sport = packet->tcp->source;
       dport = packet->tcp->dest;
@@ -425,7 +419,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
     if (dst != NULL) {
       for (counter = 0; counter < dst->irc_number_of_port; counter++) {
 	if (dst->irc_port[counter] == sport || dst->irc_port[counter] == dport) {
-	  dst->last_time_port_used[counter] = packet->tick_timestamp;
+	  dst->last_time_port_used[counter] = packet->current_time_ms;
 	  NDPI_LOG_INFO(ndpi_struct, "found IRC: dest port matched with the DCC port");
 	  ndpi_int_irc_add_connection(ndpi_struct, flow);
 	  return;
@@ -435,7 +429,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
     if (src != NULL) {
       for (counter = 0; counter < src->irc_number_of_port; counter++) {
 	if (src->irc_port[counter] == sport || src->irc_port[counter] == dport) {
-	  src->last_time_port_used[counter] = packet->tick_timestamp;
+	  src->last_time_port_used[counter] = packet->current_time_ms;
 	  NDPI_LOG_INFO(ndpi_struct, "found  IRC: Source port matched with the DCC port");
 	  ndpi_int_irc_add_connection(ndpi_struct, flow);
 	  return;
@@ -444,37 +438,6 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
     }
   }
 
-
-
-  if (flow->detected_protocol_stack[0] != NDPI_PROTOCOL_IRC
-      && flow->packet_counter == 2 && (packet->payload_packet_len > 400 && packet->payload_packet_len < 1381)) {
-    for (c1 = 50; c1 < packet->payload_packet_len - 23; c1++) {
-      if (packet->payload[c1] == 'i' || packet->payload[c1] == 'd') {
-	if ((memcmp(&packet->payload[c1], "irc.hackthissite.org0", 21)
-	     == 0)
-	    || (memcmp(&packet->payload[c1], "irc.gamepad.ca1", 15) == 0)
-	    || (memcmp(&packet->payload[c1], "dungeon.axenet.org0", 19)
-		== 0)
-	    || (memcmp(&packet->payload[c1], "dazed.nuggethaus.net", 20)
-		== 0)
-	    || (memcmp(&packet->payload[c1], "irc.indymedia.org", 17)
-		== 0)
-	    || (memcmp(&packet->payload[c1], "irc.cccp-project.net", 20)
-		== 0)
-	    || (memcmp(&packet->payload[c1], "dirc.followell.net0", 19)
-		== 0)
-	    || (memcmp(&packet->payload[c1], "irc.discostars.de1", 18)
-		== 0)
-	    || (memcmp(&packet->payload[c1], "irc.rizon.net", 13) == 0)) {
-	  NDPI_LOG_INFO(ndpi_struct,
-		   "found IRC SSL: - irc.hackthissite.org0 | irc.gamepad.ca1 | dungeon.axenet.org0 "
-		   "| dazed.nuggethaus.net | irc.indymedia.org | irc.discostars.de1 ");
-	  ndpi_int_irc_add_connection(ndpi_struct, flow);
-	  break;
-	}
-      }
-    }
-  }
   if (flow->detected_protocol_stack[0] != NDPI_PROTOCOL_IRC &&
       ndpi_search_irc_ssl_detect_ninety_percent_but_very_fast(ndpi_struct, flow) != 0) {
     return;
@@ -495,7 +458,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 	  packet->parsed_lines = 0;
 	}
 	for (i = 0; i < packet->parsed_lines; i++) {
-	  if (packet->line[i].ptr[0] == ':') {
+	  if ((packet->line[i].len > 0) && packet->line[i].ptr[0] == ':') {
 	    flow->l4.tcp.irc_3a_counter++;
 	    if (flow->l4.tcp.irc_3a_counter == 7) {	/* ':' == 0x3a */
 	      NDPI_LOG_INFO(ndpi_struct, "found irc. 0x3a. seven times.");
@@ -517,11 +480,12 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 	  || (memcmp(packet->payload, "PONG ", 5) == 0)
 	  || (memcmp(packet->payload, "PING ", 5) == 0)
 	  || (memcmp(packet->payload, "JOIN ", 5) == 0)
+	  || (memcmp(packet->payload, "MODE ", 5) == 0)
 	  || (memcmp(packet->payload, "NOTICE ", 7) == 0)
 	  || (memcmp(packet->payload, "PRIVMSG ", 8) == 0)
 	  || (memcmp(packet->payload, "VERSION ", 8) == 0)) {
 	NDPI_LOG_DBG2(ndpi_struct,
-		 "USER, NICK, PASS, NOTICE, PRIVMSG one time");
+		      "USER, NICK, PASS, NOTICE, PRIVMSG one time");
 	if (flow->l4.tcp.irc_stage == 2) {
 	  NDPI_LOG_INFO(ndpi_struct, "found irc");
 	  ndpi_int_irc_add_connection(ndpi_struct, flow);
@@ -558,8 +522,8 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 	    NDPI_LOG_DBG2(ndpi_struct, "packet contains more than one line");
 	    for (c = 1; c < packet->parsed_lines; c++) {
 	      if (packet->line[c].len > 4 && (memcmp(packet->line[c].ptr, "NICK ", 5) == 0
-						   || memcmp(packet->line[c].ptr, "USER ",
-							     5) == 0)) {
+					      || memcmp(packet->line[c].ptr, "USER ",
+							5) == 0)) {
 		NDPI_LOG_INFO(ndpi_struct, "found IRC: two icq signal words in the same packet");
 		ndpi_int_irc_add_connection(ndpi_struct, flow);
 		flow->l4.tcp.irc_stage = 3;
@@ -583,7 +547,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
     if (memcmp(packet->payload, "POST ", 5) == 0) {
       ndpi_parse_packet_line_info(ndpi_struct, flow);
       if (packet->parsed_lines) {
-		  u_int16_t http_header_len = (u_int16_t)((packet->line[packet->parsed_lines - 1].ptr - packet->payload) + 2);
+	u_int16_t http_header_len = (u_int16_t)((packet->line[packet->parsed_lines - 1].ptr - packet->payload) + 2);
 	if (packet->payload_packet_len > http_header_len) {
 	  http_content_ptr_len = packet->payload_packet_len - http_header_len;
 	}
@@ -593,7 +557,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 	    || ((packet->referer_line.ptr)
 		&& (ndpi_check_for_IRC_traces(packet->referer_line.ptr, packet->referer_line.len)))) {
 	  NDPI_LOG_DBG2(ndpi_struct,
-		   "IRC detected from the Http URL/ Referer header ");
+			"IRC detected from the Http URL/ Referer header ");
 	  flow->l4.tcp.irc_stage = 1;
 	  // HTTP POST Request body is not in the same packet.
 	  if (!http_content_ptr_len) {
@@ -640,7 +604,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 	    if (memcmp(&packet->line[i].ptr[j + 1], "DCC SEND ", 9) == 0
 		|| memcmp(&packet->line[i].ptr[j + 1], "DCC CHAT ", 9) == 0) {
 	      NDPI_LOG_INFO(ndpi_struct,
-		       "found NOTICE and DCC CHAT or DCC SEND.");
+			    "found NOTICE and DCC CHAT or DCC SEND.");
 	    }
 	  }
 	}
@@ -677,7 +641,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 	      if (memcmp(&packet->line[i].ptr[j], "SEND ", 5) == 0
 		  || (memcmp(&packet->line[i].ptr[j], "CHAT", 4) == 0)
 		  || (memcmp(&packet->line[i].ptr[j], "chat", 4) == 0)
-		  || (memcmp(&packet->line[i].ptr[j], "sslchat", 7) == 0)
+		  || (j+7 < packet->line[i].len && memcmp(&packet->line[i].ptr[j], "sslchat", 7) == 0)
 		  || (memcmp(&packet->line[i].ptr[j], "TSEND", 5) == 0)) {
 		NDPI_LOG_DBG2(ndpi_struct, "found CHAT,chat,sslchat,TSEND.");
 		j += 4;
@@ -703,7 +667,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 			ntohs_ndpi_bytestream_to_number
 			(&packet->line[i].ptr[j], packet->payload_packet_len - j, &j);
 		      NDPI_LOG_DBG2(ndpi_struct, "port %u.",
-			       port);
+				    port);
 		      j = k;
 		      // hier jetzt überlegen, wie die ports abgespeichert werden sollen
 		      if (src->irc_number_of_port < NDPI_PROTOCOL_IRC_MAXPORT)
@@ -714,9 +678,9 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 			    = port;
 			  src->irc_number_of_port++;
 			  NDPI_LOG_DBG2(ndpi_struct, "found port=%d jjeeeeeeeeeeeeeeeeeeeeeeeee",
-			     ntohs(get_u_int16_t(src->irc_port, 0)));
+					ntohs(get_u_int16_t(src->irc_port, 0)));
 			}
-			src->irc_ts = packet->tick_timestamp;
+			src->irc_ts = packet->current_time_ms;
 		      } else if (port != 0 && src->irc_number_of_port == NDPI_PROTOCOL_IRC_MAXPORT) {
 			if (!ndpi_is_duplicate(src, port)) {
 			  less = 0;
@@ -724,7 +688,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 			  src->irc_port[less] = port;
 			  NDPI_LOG_DBG2(ndpi_struct, "found port=%d", ntohs(get_u_int16_t(src->irc_port, 0)));
 			}
-			src->irc_ts = packet->tick_timestamp;
+			src->irc_ts = packet->current_time_ms;
 		      }
 		      if (dst == NULL) {
 			break;
@@ -747,7 +711,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 			  NDPI_LOG_DBG2(ndpi_struct, "found port=%d", ntohs(get_u_int16_t(dst->irc_port, 0)));
 			  NDPI_LOG_DBG2(ndpi_struct, "juuuuuuuuuuuuuuuu");
 			}
-			dst->irc_ts = packet->tick_timestamp;
+			dst->irc_ts = packet->current_time_ms;
 		      } else if (port != 0 && dst->irc_number_of_port == NDPI_PROTOCOL_IRC_MAXPORT) {
 			if (!ndpi_is_duplicate(dst, port)) {
 			  less = 0;
@@ -756,7 +720,7 @@ void ndpi_search_irc_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
 
 			  NDPI_LOG_DBG2(ndpi_struct, "found port=%d", ntohs(get_u_int16_t(dst->irc_port, 0)));
 			}
-			dst->irc_ts = packet->tick_timestamp;
+			dst->irc_ts = packet->current_time_ms;
 		      }
 
 		      break;

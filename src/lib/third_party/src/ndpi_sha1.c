@@ -33,7 +33,12 @@ typedef uint32_t u_int32_t;
 #if defined(__sun)
 #include "solarisfixes.h"
 #endif
+#include "ndpi_main.h"
 #include "ndpi_sha1.h"
+
+#ifdef WIN32
+#define BYTE_ORDER LITTLE_ENDIAN 
+#endif
 
 #ifndef BYTE_ORDER
 #if (BSD >= 199103)
@@ -96,6 +101,8 @@ typedef uint32_t u_int32_t;
 #else
 #error "Endianness not defined!"
 #endif
+
+
 #define blk(i) (block->l[i&15] = rol(block->l[(i+13)&15]^block->l[(i+8)&15] \
     ^block->l[(i+2)&15]^block->l[i&15],1))
 

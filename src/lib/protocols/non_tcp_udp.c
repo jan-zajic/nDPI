@@ -1,8 +1,8 @@
 /*
  * non_tcp_udp.c
  *
- * Copyright (C) 2009-2011 by ipoque GmbH
- * Copyright (C) 2011-19 - ntop.org
+ * Copyright (C) 2009-11 - ipoque GmbH
+ * Copyright (C) 2011-21 - ntop.org
  *
  * This file is part of nDPI, an open source deep packet inspection
  * library based on the OpenDPI and PACE technology by ipoque GmbH
@@ -43,9 +43,7 @@ void ndpi_search_in_non_tcp_udp(struct ndpi_detection_module_struct
   struct ndpi_packet_struct *packet = &flow->packet;
 
   if (packet->iph == NULL) {
-#ifdef NDPI_DETECTION_SUPPORT_IPV6
     if (packet->iphv6 == NULL)
-#endif
       return;
   }
 

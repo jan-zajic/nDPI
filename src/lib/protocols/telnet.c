@@ -1,8 +1,8 @@
 /*
  * telnet.c
  *
- * Copyright (C) 2011-19 - ntop.org
- * Copyright (C) 2009-2011 by ipoque GmbH
+ * Copyright (C) 2011-21 - ntop.org
+ * Copyright (C) 2009-11 - ipoque GmbH
  *
  * This file is part of nDPI, an open source deep packet inspection
  * library based on the OpenDPI and PACE technology by ipoque GmbH
@@ -36,69 +36,68 @@
 static int search_telnet_again(struct ndpi_detection_module_struct *ndpi_struct,
 			       struct ndpi_flow_struct *flow) {
   struct ndpi_packet_struct *packet = &flow->packet;
+  int i;
 
 #ifdef TELNET_DEBUG
-  printf("==> %s() [%s]\n", __FUNCTION__, packet->payload);
+  printf("==> %s() [%s][direction: %u]\n", __FUNCTION__, packet->payload, packet->packet_direction);
 #endif
   
-  if(packet->payload[0] == 0xFF)
+  if((packet->payload == NULL)
+     || (packet->payload_packet_len == 0)
+     || (packet->payload[0] == 0xFF))
     return(1);
 
-  if(packet->payload_packet_len > 0) {
-    int i;
-
-    if(flow->protos.telnet.username_detected) {
-      if((!flow->protos.telnet.password_found)
-	 && (packet->payload_packet_len > 6)) {
+  if(flow->protos.telnet.username_detected) {
+    if((!flow->protos.telnet.password_found)
+	&& (packet->payload_packet_len > 9)) {
 	
-	if(strncasecmp((char*)packet->payload, "password:", 9) == 0) {
-	  flow->protos.telnet.password_found = 1;
-	}
-	
-	return(1);
+      if(strncasecmp((char*)packet->payload, "password:", 9) == 0) {
+	flow->protos.telnet.password_found = 1;
       }
+
+      return(1);
+    }
       
-      if(packet->payload[0] == '\r') {
-	if(!flow->protos.telnet.password_found)
-	  return(1);
+    if(packet->payload[0] == '\r') {
+      if(!flow->protos.telnet.password_found)
+	return(1);
 	
-	flow->protos.telnet.password_detected = 1;
-	flow->protos.telnet.password[flow->protos.telnet.character_id] = '\0';
-	return(0);
-      }
+      flow->protos.telnet.password_detected = 1;
+      flow->protos.telnet.password[flow->protos.telnet.character_id] = '\0';
+      return(0);
+    }
 
+    if(packet->packet_direction == 0) /* client -> server */ {
       for(i=0; i<packet->payload_packet_len; i++) {
 	if(flow->protos.telnet.character_id < (sizeof(flow->protos.telnet.password)-1))
 	  flow->protos.telnet.password[flow->protos.telnet.character_id++] = packet->payload[i];
       }
-
-      return(1);
-    }
-    
-    if((!flow->protos.telnet.username_found)
-       && (packet->payload_packet_len > 6)) {
-
-      if(strncasecmp((char*)packet->payload, "login:", 6) == 0) {
-	flow->protos.telnet.username_found = 1;
-      }
-
-      return(1);
     }
 
-    if(packet->payload[0] == '\r') {
-      flow->protos.telnet.username_detected = 1;
-      flow->protos.telnet.username[flow->protos.telnet.character_id] = '\0';
-      flow->protos.telnet.character_id = 0;
-      return(1);
+    return(1);
+  }
+
+  if((!flow->protos.telnet.username_found)
+     && (packet->payload_packet_len > 6)) {
+
+    if(strncasecmp((char*)packet->payload, "login:", 6) == 0) {
+      flow->protos.telnet.username_found = 1;
     }
 
-    for(i=0; i<packet->payload_packet_len; i++) {
-      if(!flow->protos.telnet.skip_next) {
-	if(flow->protos.telnet.character_id < (sizeof(flow->protos.telnet.username)-1))
-	  flow->protos.telnet.username[flow->protos.telnet.character_id++] = packet->payload[i];
-	flow->protos.telnet.skip_next = 1;
-      } else
-	flow->protos.telnet.skip_next = 0;
+    return(1);
+  }
+
+  if(packet->payload[0] == '\r') {
+    flow->protos.telnet.username_detected = 1;
+    flow->protos.telnet.username[flow->protos.telnet.character_id] = '\0';
+    flow->protos.telnet.character_id = 0;
+    return(1);
+  }
+
+  for(i=0; i<packet->payload_packet_len; i++) {
+    if(packet->packet_direction == 0) /* client -> server */ {
+      if(flow->protos.telnet.character_id < (sizeof(flow->protos.telnet.username)-1))
+	flow->protos.telnet.username[flow->protos.telnet.character_id++] = packet->payload[i];
     }
   }
 
@@ -186,12 +185,12 @@ void ndpi_search_telnet_tcp(struct ndpi_detection_module_struct *ndpi_struct,
 
   if(((flow->packet_counter < 12) && (flow->l4.tcp.telnet_stage > 0)) || (flow->packet_counter < 6)) {
 #ifdef TELNET_DEBUG
-    printf("==> [%s:%u] %s()\n", __FILE__, __LINE__, __FUNCTION__);
+    printf("==> [%s:%d] %s()\n", __FILE__, __LINE__, __FUNCTION__);
 #endif
     return;
   } else {
 #ifdef TELNET_DEBUG
-    printf("==> [%s:%u] %s()\n", __FILE__, __LINE__, __FUNCTION__);
+    printf("==> [%s:%d] %s()\n", __FILE__, __LINE__, __FUNCTION__);
 #endif
     NDPI_EXCLUDE_PROTO(ndpi_struct, flow);
   }
