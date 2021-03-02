@@ -38,6 +38,7 @@ cat configure.seed | sed \
     -e "s/@NDPI_MINOR@/$NDPI_MINOR/g" \
     -e "s/@NDPI_PATCH@/$NDPI_PATCH/g" \
     -e "s/@NDPI_VERSION_SHORT@/$NDPI_VERSION_SHORT/g" \
+	-e "s/@FUZZY@/$FUZZY/g" \
     > configure.ac
 
 autoreconf -ivf
