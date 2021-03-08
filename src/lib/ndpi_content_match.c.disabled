@@ -154,3 +154,10 @@ static const char *ndpi_en_bigrams[] = {
 
 static const char *ndpi_en_impossible_bigrams[] = {
   NULL };
+
+/* ******************************************************************** */
+
+/* Top EN trigrams */
+static const char *ndpi_en_trigrams[] = {
+  NULL };
+
