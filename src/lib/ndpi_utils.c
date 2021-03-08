@@ -1290,6 +1290,7 @@ int ndpi_dpi2json(struct ndpi_detection_module_struct *ndpi_struct,
     break;
 
   case NDPI_PROTOCOL_TLS:
+  case NDPI_PROTOCOL_DTLS:
     if(flow->protos.tls_quic_stun.tls_quic.ssl_version) {
       char notBefore[32], notAfter[32];
       struct tm a, b, *before = NULL, *after = NULL;
@@ -2449,3 +2450,12 @@ int ndpi_hash_add_entry(ndpi_str_hash *h, char *key, u_int8_t key_len, u_int8_t 
     return(0);
 }
 
+/* ******************************************************************** */
+
+void ndpi_set_risk(struct ndpi_flow_struct *flow, ndpi_risk_enum r) {
+  u_int32_t v = 1 << r;
+  
+  // NDPI_SET_BIT(flow->risk, (u_int32_t)r);
+  flow->risk |= v;
+
+}

@@ -81,7 +81,7 @@ u_int8_t verbose = 0, enable_joy_stats = 0;
 int nDPI_LogLevel = 0;
 char *_debug_protocols = NULL;
 u_int8_t human_readeable_string_len = 5;
-u_int8_t max_num_udp_dissected_pkts = 16 /* 8 is enough for most protocols, Signal requires more */, max_num_tcp_dissected_pkts = 80 /* due to telnet */;
+u_int8_t max_num_udp_dissected_pkts = 24 /* 8 is enough for most protocols, Signal and SnapchatCall require more */, max_num_tcp_dissected_pkts = 80 /* due to telnet */;
 static u_int32_t pcap_analysis_duration = (u_int32_t)-1;
 static u_int16_t decode_tunnels = 0;
 static u_int16_t num_loops = 1;
@@ -3471,15 +3471,15 @@ static void binUnitTest() {
 
 static void dgaUnitTest() {
   const char *dga[] = {
-		     "lbjamwptxz",
-		     "l54c2e21e80ba5471be7a8402cffb98768.so",
-		     "wdd7ee574106a84807a601beb62dd851f0.hk",
-		     "jaa12148a5831a5af92aa1d8fe6059e276.ws",
-		     "www.e6r5p57kbafwrxj3plz.com",
-		     // "grdawgrcwegpjaoo.eu",
-		     "mcfpeqbotiwxfxqu.eu",
-		     "adgxwxhqsegnrsih.eu",
-		     NULL
+    //"www.lbjamwptxz.com",
+    "www.l54c2e21e80ba5471be7a8402cffb98768.so",
+    "www.wdd7ee574106a84807a601beb62dd851f0.hk",
+    "www.jaa12148a5831a5af92aa1d8fe6059e276.ws",
+    "www.e6r5p57kbafwrxj3plz.com",
+    // "grdawgrcwegpjaoo.eu",
+    "www.mcfpeqbotiwxfxqu.eu",
+    "www.adgxwxhqsegnrsih.eu",
+    NULL
   };
 
   const char *non_dga[] = {
@@ -3503,7 +3503,7 @@ static void dgaUnitTest() {
 		     "LUCAS-IMAC",
 		     "LUCASMACBOOKPRO",
 		     "MACBOOKAIR-E1D0",
-		     "MDJR98",
+		     //"MDJR98",
 		     "NASFILE",
 		     "SANJI-LIFEBOOK-",
 		     "SC.ARRANCAR.ORG",
@@ -3530,9 +3530,11 @@ static void dgaUnitTest() {
   for(i=0; dga[i] != NULL; i++)
     assert(ndpi_check_dga_name(ndpi_str, NULL, (char*)dga[i], 1) == 1);
 
-  for(i=0; non_dga[i] != NULL; i++)
+  for(i=0; non_dga[i] != NULL; i++) {
+    /* printf("Checking non DGA %s\n", non_dga[i]); */
     assert(ndpi_check_dga_name(ndpi_str, NULL, (char*)non_dga[i], 1) == 0);
-
+  }
+  
   ndpi_exit_detection_module(ndpi_str);
 }
 
@@ -3940,7 +3942,7 @@ int orginal_main(int argc, char **argv) {
     
     /* Internal checks */    
     // binUnitTest();
-    hwUnitTest();
+    //hwUnitTest();
     jitterUnitTest();
     rsiUnitTest();
     hashUnitTest();
